@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "scanruler": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "c:/Users/AV_86/projects/ScanRuler/docker-compose.yml",
+        "exec",
+        "-i",
+        "-T",
+        "mcp",
+        "node",
+        "/opt/scanruler-mcp/bin/scanruler-mcp.js",
+        "--app",
+        "https://localhost:442",
+        "--out",
+        "/data"
+      ]
+    }
+  }
+}

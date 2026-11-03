@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-engine
+.git
+.wrangler
+e2e-out
+mcp/node_modules
+data
+*.stl
+*.ply
+*.obj

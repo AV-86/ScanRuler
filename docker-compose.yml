@@ -1,0 +1,23 @@
+services:
+  scanruler:
+    build: .
+    ports:
+      - "442:442"
+
+  # Holds the page connection. Cursor does not talk to this process: its
+  # MCP config runs `docker compose exec` and that copy relays here.
+  # Files the agent opens are /data/… inside the container (the ./data folder).
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    stdin_open: true
+    ports:
+      - "127.0.0.1:7317:7318"
+    volumes:
+      - mcp-config:/config
+      - ./data:/data
+    restart: unless-stopped
+
+volumes:
+  mcp-config:
