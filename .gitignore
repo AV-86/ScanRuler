@@ -15,3 +15,6 @@ dist/
 
 # The app built for Node, headless (npm run build:engine)
 /dist-engine/
+
+# ProxyAPI key for the local Open WebUI container
+.env.proxyapi

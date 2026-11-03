@@ -4,9 +4,10 @@ services:
     ports:
       - "442:442"
 
-  # Holds the page connection. Cursor does not talk to this process: its
-  # MCP config runs `docker compose exec` and that copy relays here.
-  # Files the agent opens are /data/… inside the container (the ./data folder).
+  # Holds the page connection on 127.0.0.1:7317. Cursor does not talk to this
+  # process: its MCP config runs `docker compose exec` and that copy relays
+  # here. Open WebUI talks to mcp-http, which shares this network namespace
+  # and relays the same way. Files the agent opens are /data/… (the ./data folder).
   mcp:
     build:
       context: .
@@ -17,7 +18,89 @@ services:
     volumes:
       - mcp-config:/config
       - ./data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const n=require('net');const s=n.connect(7317,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),2000)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  # stdio scanruler-mcp → Streamable HTTP, the only MCP transport Open WebUI
+  # speaks. Not published on the host: Open WebUI reaches it as http://mcp:8000/mcp.
+  # SCANRULER_OPENWEBUI_TOOLS=full lists every ScanRuler command. compact
+  # is the short list, for a small local model.
+  mcp-http:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    network_mode: service:mcp
+    depends_on:
+      mcp:
+        condition: service_healthy
+    environment:
+      SCANRULER_OPENWEBUI_TOOLS: ${SCANRULER_OPENWEBUI_TOOLS:-full}
+    volumes:
+      - mcp-config:/config
+      - ./data:/data
+    entrypoint: ["/usr/local/bin/mcp-http-entrypoint.sh"]
+    init: true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    depends_on:
+      mcp-http:
+        condition: service_healthy
+    ports:
+      - "3000:8080"
+    env_file:
+      - path: .env.proxyapi
+        required: false
+    environment:
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-scanruler-local-open-webui}
+      WEBUI_URL: ${WEBUI_URL:-http://localhost:3000}
+      ENABLE_PERSISTENT_CONFIG: "false"
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: https://api.proxyapi.ru/v1
+      OPENAI_API_BASE_URLS: https://api.proxyapi.ru/v1
+      MCP_INITIALIZE_TIMEOUT: "60"
+      AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER: "300"
+      AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA: "60"
+      TOOL_SERVER_CONNECTIONS: '[{"type":"mcp","url":"http://mcp:8000/mcp","path":"","auth_type":"none","key":"","config":{"enable":true},"info":{"id":"scanruler","name":"ScanRuler","description":"Measure and model the scan open in the ScanRuler tab"}}]'
+    volumes:
+      - open-webui:/app/backend/data
     restart: unless-stopped
 
 volumes:
   mcp-config:
+  open-webui:
+  ollama:

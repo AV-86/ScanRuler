@@ -6,12 +6,13 @@ RUN apk add --no-cache socat
 WORKDIR /opt/scanruler-mcp
 
 COPY mcp/package.json mcp/package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm install -g supergateway@4.2.1
 
 COPY mcp/bin ./bin
 COPY mcp/src ./src
-COPY docker/mcp-entrypoint.sh /usr/local/bin/mcp-entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/mcp-entrypoint.sh && chmod +x /usr/local/bin/mcp-entrypoint.sh
+COPY docker/mcp-entrypoint.sh docker/mcp-http-entrypoint.sh /usr/local/bin/
+RUN sed -i 's/\r$//' /usr/local/bin/mcp-entrypoint.sh /usr/local/bin/mcp-http-entrypoint.sh \
+  && chmod +x /usr/local/bin/mcp-entrypoint.sh /usr/local/bin/mcp-http-entrypoint.sh
 
 ENV SCANRULER_MCP_CONFIG_DIR=/config \
     SCANRULER_MCP_NO_UPDATE=1
